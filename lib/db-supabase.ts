@@ -74,7 +74,7 @@ function mapDbCampaign(db: DbCampaign): Campaign {
     radius: db.radius,
     dwellTimeRequired: db.dwell_time_required,
     reward: db.reward,
-    image: db.image || undefined,
+    image: db.image || '',
     expiryDate: new Date(db.expiry_date).getTime(),
     active: db.active,
     geohash: db.geohash || undefined,
@@ -87,14 +87,14 @@ function mapDbRedemption(db: DbRedemption): Redemption {
     id: db.id,
     userId: db.user_id,
     campaignId: db.campaign_id,
-    verifiedLocation: db.verified_location ? parseLocation(db.verified_location) : undefined,
-    verificationData: db.verification_data,
+    location: db.verified_location ? parseLocation(db.verified_location) : { lat: 0, lng: 0 },
     status: db.redemption_status === 'redeemed' ? 'verified' : 
             db.redemption_status === 'rejected' ? 'flagged' :
             db.redemption_status,
-    code: db.redemption_code || undefined,
     timestamp: new Date(db.created_at).getTime(),
-    redeemedAt: db.redeemed_at ? new Date(db.redeemed_at).getTime() : undefined,
+    telemetry: db.verification_data?.telemetry,
+    riskScore: db.verification_data?.riskScore,
+    fraudFlags: db.verification_data?.fraudFlags,
   };
 }
 
@@ -249,11 +249,15 @@ export async function createRedemption(redemption: Omit<Redemption, 'id' | 'time
     .insert({
       user_id: redemption.userId,
       campaign_id: redemption.campaignId,
-      verified_location: redemption.verifiedLocation ? formatLocation(redemption.verifiedLocation) : null,
-      verification_data: redemption.verificationData || {},
+      verified_location: redemption.location ? formatLocation(redemption.location) : null,
+      verification_data: {
+        telemetry: redemption.telemetry,
+        riskScore: redemption.riskScore,
+        fraudFlags: redemption.fraudFlags,
+        sessionId: redemption.sessionId,
+        deviceFingerprint: redemption.deviceFingerprint,
+      },
       redemption_status: redemption.status === 'flagged' ? 'rejected' : redemption.status,
-      redemption_code: redemption.code || null,
-      redeemed_at: redemption.redeemedAt ? new Date(redemption.redeemedAt).toISOString() : null,
     })
     .select()
     .single();
@@ -272,17 +276,17 @@ export async function updateRedemption(id: string, updates: Partial<Redemption>)
   if (updates.status) {
     updateData.redemption_status = updates.status === 'flagged' ? 'rejected' : updates.status;
   }
-  if (updates.verifiedLocation) {
-    updateData.verified_location = formatLocation(updates.verifiedLocation);
+  if (updates.location) {
+    updateData.verified_location = formatLocation(updates.location);
   }
-  if (updates.verificationData) {
-    updateData.verification_data = updates.verificationData;
-  }
-  if (updates.code) {
-    updateData.redemption_code = updates.code;
-  }
-  if (updates.redeemedAt) {
-    updateData.redeemed_at = new Date(updates.redeemedAt).toISOString();
+  if (updates.telemetry || updates.riskScore || updates.fraudFlags) {
+    updateData.verification_data = {
+      telemetry: updates.telemetry,
+      riskScore: updates.riskScore,
+      fraudFlags: updates.fraudFlags,
+      sessionId: updates.sessionId,
+      deviceFingerprint: updates.deviceFingerprint,
+    };
   }
 
   const { data, error } = await supabase
@@ -331,8 +335,9 @@ export async function getUserById(id: string): Promise<User | null> {
 
   return {
     id: data.id,
-    name: data.name || undefined,
+    name: data.name || 'Unknown User',
     role: data.role,
+    avatar: `https://picsum.photos/seed/${data.id}/100/100`,
     consentGiven: latestConsent?.granted || false,
     consentTimestamp: latestConsent?.granted_at ? new Date(latestConsent.granted_at).getTime() : undefined,
   };
