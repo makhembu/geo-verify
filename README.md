@@ -38,6 +38,7 @@ A location-based verification and rewards platform built with Next.js. GeoVerify
 - **Framework**: Next.js 16.1 (App Router)
 - **UI**: React 19, Tailwind CSS 4
 - **Maps**: Leaflet + React-Leaflet
+- **Database**: Supabase/PostgreSQL with PostGIS
 - **Icons**: Lucide React
 - **Language**: TypeScript 5
 
@@ -47,6 +48,7 @@ A location-based verification and rewards platform built with Next.js. GeoVerify
 
 - Node.js 18+ 
 - npm or yarn
+- Supabase account (free tier available at [supabase.com](https://supabase.com))
 
 ### Installation
 
@@ -58,6 +60,21 @@ cd geo-verify
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your Supabase credentials
+```
+
+### Database Setup
+
+1. Create a new project on [Supabase](https://supabase.com)
+2. Copy your project URL and anon key from Project Settings > API
+3. In the Supabase SQL Editor, run the contents of `supabase-schema.sql`
+4. This will create all tables, indexes, and seed data
+
+### Running the App
+
+```bash
 # Start development server
 npm run dev
 ```
@@ -141,18 +158,21 @@ Campaigns can be configured with:
 
 ### Environment Variables
 
-For production, configure these environment variables:
+Configure these in your `.env.local` file:
 
 ```env
-# Database (replace in-memory storage)
-DATABASE_URL=your_database_url
+# Supabase Configuration (Required)
+NEXT_PUBLIC_SUPABASE_URL=your-project-url.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
-# Authentication
-AUTH_SECRET=your_auth_secret
+# Optional: Supabase service role key for admin operations
+# SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Map Tiles (optional custom provider)
+# Optional: Custom map tiles provider
 NEXT_PUBLIC_MAP_TILES_URL=https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 ```
+
+See `.env.local.example` for a template.
 
 ## Sample Campaigns
 
@@ -172,12 +192,24 @@ The app comes with pre-configured Kenya-based sample campaigns:
 
 Before deploying to production:
 
-1. **Replace in-memory storage** with a real database (Supabase, PostgreSQL, etc.)
-2. **Implement proper authentication** (NextAuth.js, Clerk, etc.)
+1. ✅ **Database**: Supabase/PostgreSQL integration is ready (see `lib/db-supabase.ts`)
+2. **Implement proper authentication** (Supabase Auth, NextAuth.js, Clerk, etc.)
 3. **Add rate limiting** to API endpoints
 4. **Use Redis** for session management and replay prevention
 5. **Enable HTTPS** for secure location data transmission
 6. **Add monitoring** for fraud detection alerts
+7. **Configure Row Level Security (RLS)** policies in Supabase (included in schema)
+
+### Switching to Supabase
+
+To use the Supabase implementation:
+
+1. Set up your Supabase project and run `supabase-schema.sql`
+2. Configure environment variables in `.env.local`
+3. Update imports in API routes from `lib/db` to `lib/db-supabase`
+4. Test all features work correctly
+
+See `GITHUB_ISSUE.md` for detailed integration steps.
 
 ## Deploy on Vercel
 
